@@ -1,8 +1,8 @@
 module Main (main) where
 
-import Parser.Formula
 import Parser.Evaluate
+import Parser.Formula
 
 main :: IO ()
--- main = print $ parseFormula "5 * 6"
-main = print evaluateFormula
+-- main = print $ parseOutcome "5.6 * 6"
+main = print $ extract evaluateFormula
