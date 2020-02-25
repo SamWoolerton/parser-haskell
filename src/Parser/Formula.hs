@@ -4,17 +4,9 @@ module Parser.Formula
   )
 where
 
--- module Parser.Formula
---   ( parseFormula,
---     parseOutcome,
---   )
--- where
-
--- import Control.Applicative hiding (many, some)
 import Control.Monad
 import Data.Text (Text)
 import qualified Data.Text as T
--- import Data.Void
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -33,12 +25,11 @@ parseOutcome f = format $ parseFormula f
     format (Right p) = show p
 
 pText :: Parser Text
-pText =
-  do
-    void (char '"')
-    str <- T.pack <$> many alphaNumChar
-    void (char '"')
-    return str
+pText = do
+  void (char '"')
+  str <- T.pack <$> many alphaNumChar
+  void (char '"')
+  return str
 
 pBool :: Parser Bool
 pBool = choice [True <$ string "true", False <$ string "false"]
@@ -46,7 +37,7 @@ pBool = choice [True <$ string "true", False <$ string "false"]
 pNumber :: Parser Double
 pNumber = L.signed s p
   where
-    s = void $ many space1
+    s = void $ some space1
     p = choice [try L.float, try $ fromIntegral <$> L.decimal]
 
 pPrimitive :: Parser Primitive
@@ -54,31 +45,64 @@ pPrimitive = choice [DBool <$> pBool, DText <$> pText, DNumber <$> pNumber]
 
 pOperator :: Parser Operator
 pOperator =
-  choice
-    [ Add <$ string "+",
-      Subtract <$ string "-",
-      Multiply <$ string "*",
-      Divide <$ string "/",
-      And <$ string "&&",
-      Or <$ string "||"
-    ]
+  do
+    void $ many space1
+    op <-
+      choice
+        [ Add <$ string "+",
+          Subtract <$ string "-",
+          Multiply <$ string "*",
+          Divide <$ string "/",
+          And <$ string "&&",
+          Or <$ string "||"
+        ]
+    void $ many space1
+    return op
 
 pExpressionPart :: Parser ExpressionPart
 pExpressionPart =
-  choice [DExPrimitive . Right <$> pPrimitive, DExOperator <$> pOperator]
+  choice [DExPrimitive <$> pPrimitive, DExOperator <$> pOperator]
 
 pExpression :: Parser Expression
 pExpression = do
   ls <- some pExpressionPart
   return $ Expression ls
 
+pFunctionName :: Parser FunctionName
+pFunctionName = do
+  str <- T.pack <$> many (choice [letterChar, char '_'])
+  return $ DFunctionName str
+
+pFunctionArg :: Parser FunctionArg
+pFunctionArg = DFnPrimitive <$> pPrimitive
+
+pFunctionArgNext :: Parser FunctionArg
+pFunctionArgNext = do
+  void (char ',')
+  void (some $ char ' ')
+  pFunctionArg
+
+pFunctionBody :: Parser [FunctionArg]
+pFunctionBody = do
+  first <- pFunctionArg
+  rest <- some pFunctionArgNext
+  return $ first : rest
+
+pFunction :: Parser Function
+pFunction = do
+  name <- pFunctionName
+  void (char '(')
+  args <- pFunctionBody
+  void (char ')')
+  return $ Function name args
+
 pFormula :: Parser Formula
-pFormula =
-  do
-    f <-
-      choice
-        [ try $ DExpression <$> pExpression,
-          try $ DPrimitive <$> pPrimitive
-        ]
-    void eof
-    return f
+pFormula = do
+  f <-
+    choice
+      [ try $ DFunction <$> pFunction,
+        try $ DExpression <$> pExpression,
+        try $ DPrimitive <$> pPrimitive
+      ]
+  void eof
+  return f

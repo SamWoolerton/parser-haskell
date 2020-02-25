@@ -5,6 +5,9 @@ module Types
     Operator (..),
     Expression (..),
     ExpressionPart (..),
+    FunctionName (..),
+    FunctionArg (..),
+    Function (..),
     Formula (..),
   )
 where
@@ -28,11 +31,20 @@ data Primitive
 data Operator = Add | Subtract | Multiply | Divide | And | Or
   deriving (Show, Eq)
 
-data ExpressionPart = DExPrimitive (Either Text Primitive) | DExOperator Operator
+data ExpressionPart = DExPrimitive Primitive | DExOperator Operator
   deriving (Show, Eq)
 
 newtype Expression = Expression [ExpressionPart]
   deriving (Show, Eq)
 
-data Formula = DExpression Expression | DPrimitive Primitive
+newtype FunctionName = DFunctionName Text
+  deriving (Show, Eq)
+
+data FunctionArg = DFnPrimitive Primitive | DFnExpression Expression
+  deriving (Show, Eq)
+
+data Function = Function FunctionName [FunctionArg]
+  deriving (Show, Eq)
+
+data Formula = DFunction Function | DExpression Expression | DPrimitive Primitive
   deriving (Show)
